@@ -48,6 +48,39 @@ window.ClipboardListIcon = window.ClipboardList;
  * CareScope360 Delegations App - Complete Fixed Version  Copyright 2026 CareScope, LLC
  */
 
+import React, { useMemo, useRef, useState, useEffect } from "react";
+import {
+  ShieldCheck,
+  LayoutDashboard,
+  Users,
+  ClipboardList,
+  CalendarCheck,
+  Search,
+  Plus,
+  X,
+  Download,
+  Printer,
+  Trash2,
+  Calendar,
+  CheckSquare,
+  BookOpen,
+  AlertTriangle,
+  PenLine,
+  FileText,
+  Settings,
+  LogOut,
+  Activity,
+  Home,
+  UserCheck,
+  Building,
+  Mail,
+  Phone,
+  Briefcase,
+  Edit2,
+  Save,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
 
 /**
  * DelegationManagementApp.jsx
@@ -463,7 +496,7 @@ function printAssessment(args) { const w = window.open("", "_blank"); w.document
 function printTranscript(args) { const w = window.open("", "_blank"); w.document.write(buildTranscriptHTML(args)); w.document.close(); setTimeout(() => w.print(), 300); }
 
 // -------------------- MAIN APP --------------------
-
+export default function DelegationManagementApp() {
   const TODAY = todayISO();
   
   // -- UI HELPERS --
