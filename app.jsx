@@ -36,7 +36,7 @@ for (const name of __iconNames) {
 window.ClipboardListIcon = window.ClipboardList;
 
 
-//This is the end of the SHIM code. All I do is remove the import from Gemini and paste the rest below. -Brendan
+//This is the end of the SHIM code. All I do is remove the import from Gemini and paste the rest below. I also have to remove the "exports" as well. -Brendan
 
 
 
@@ -463,7 +463,7 @@ function printAssessment(args) { const w = window.open("", "_blank"); w.document
 function printTranscript(args) { const w = window.open("", "_blank"); w.document.write(buildTranscriptHTML(args)); w.document.close(); setTimeout(() => w.print(), 300); }
 
 // -------------------- MAIN APP --------------------
-export default function DelegationManagementApp() {
+
   const TODAY = todayISO();
   
   // -- UI HELPERS --
