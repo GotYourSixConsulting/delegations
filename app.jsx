@@ -467,7 +467,7 @@ function printAssessment(args) { const w = window.open("", "_blank"); w.document
 function printTranscript(args) { const w = window.open("", "_blank"); w.document.write(buildTranscriptHTML(args)); w.document.close(); setTimeout(() => w.print(), 300); }
 
 // -------------------- MAIN APP --------------------
-export default function DelegationManagementApp() {
+//export default function DelegationManagementApp() {
   const TODAY = todayISO();
   
   // -- UI HELPERS --
@@ -1283,4 +1283,4 @@ export default function DelegationManagementApp() {
       </Modal>
     </div>
   );
-}
+//}
