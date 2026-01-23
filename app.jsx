@@ -3055,5 +3055,5 @@ function DelegationManagementApp() {
 const App = DelegationManagementApp;
 
 // Mount once the script is loaded
-const root = ReactDOM.createRoot(document.getElementById("root"));
-root.render(React.createElement(App));
+//const root = ReactDOM.createRoot(document.getElementById("root"));
+//root.render(React.createElement(App));
