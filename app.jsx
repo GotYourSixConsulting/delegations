@@ -1570,7 +1570,7 @@ const App = () => {
     <div className="min-h-screen bg-gray-50 font-sans">
       <header className="bg-indigo-600 text-white px-5 py-4 shadow-md flex justify-between items-center">
         <div className="flex items-center gap-3">
-          //<ShieldCheck size={28} />
+  
           <div>
             <div className="text-xl font-extrabold">CareScope360 RN Delegations</div>
             <div className="text-xs flex items-center gap-1">
