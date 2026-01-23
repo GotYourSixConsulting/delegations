@@ -3,6 +3,65 @@
 const { useState, useEffect, useMemo, useCallback, useRef } = React;
 
 
+/* ===== lucide-react ICON STUBS (no-build GitHub Pages) =====
+   This replaces:
+   import { ... } from "lucide-react";
+   with browser-safe placeholders so JSX like <ShieldCheck /> works.
+*/
+
+function __LucideStub({ name, size = 24, className = "", ...rest }) {
+  // Minimal placeholder element; preserves sizing & className.
+  // If you want a visible marker during debugging, add text content here.
+  return React.createElement("span", {
+    "data-icon": name,
+    title: name,
+    className,
+    style: {
+      display: "inline-block",
+      width: typeof size === "number" ? `${size}px` : size,
+      height: typeof size === "number" ? `${size}px` : size,
+    },
+    ...rest,
+  });
+}
+
+// Icons listed in your DOCX import block:
+const ShieldCheck     = (props) => __LucideStub({ name: "ShieldCheck", ...props });
+const LayoutDashboard = (props) => __LucideStub({ name: "LayoutDashboard", ...props });
+const Users           = (props) => __LucideStub({ name: "Users", ...props });
+const ClipboardList   = (props) => __LucideStub({ name: "ClipboardList", ...props });
+const CalendarCheck   = (props) => __LucideStub({ name: "CalendarCheck", ...props });
+const Search          = (props) => __LucideStub({ name: "Search", ...props });
+const Plus            = (props) => __LucideStub({ name: "Plus", ...props });
+const X               = (props) => __LucideStub({ name: "X", ...props });
+const Download        = (props) => __LucideStub({ name: "Download", ...props });
+const Printer         = (props) => __LucideStub({ name: "Printer", ...props });
+const Trash2          = (props) => __LucideStub({ name: "Trash2", ...props });
+const Calendar        = (props) => __LucideStub({ name: "Calendar", ...props });
+const CheckSquare     = (props) => __LucideStub({ name: "CheckSquare", ...props });
+const BookOpen        = (props) => __LucideStub({ name: "BookOpen", ...props });
+const AlertTriangle   = (props) => __LucideStub({ name: "AlertTriangle", ...props });
+const PenLine         = (props) => __LucideStub({ name: "PenLine", ...props });
+const FileText        = (props) => __LucideStub({ name: "FileText", ...props });
+const Settings        = (props) => __LucideStub({ name: "Settings", ...props });
+const LogOut          = (props) => __LucideStub({ name: "LogOut", ...props });
+const Activity        = (props) => __LucideStub({ name: "Activity", ...props });
+const Home            = (props) => __LucideStub({ name: "Home", ...props });
+const UserCheck       = (props) => __LucideStub({ name: "UserCheck", ...props });
+const Building        = (props) => __LucideStub({ name: "Building", ...props });
+const Mail            = (props) => __LucideStub({ name: "Mail", ...props });
+const Phone           = (props) => __LucideStub({ name: "Phone", ...props });
+const Briefcase       = (props) => __LucideStub({ name: "Briefcase", ...props });
+const Edit2           = (props) => __LucideStub({ name: "Edit2", ...props });
+const Save            = (props) => __LucideStub({ name: "Save", ...props });
+const ChevronDown     = (props) => __LucideStub({ name: "ChevronDown", ...props });
+const ChevronUp       = (props) => __LucideStub({ name: "ChevronUp", ...props });
+
+/* ===== end lucide-react stubs ===== */
+
+
+
+
 /**
  * DelegationManagementApp.jsx
  * Prototype: Oregon RN Delegation (Division 47) tracker for Assisted Living / Memory Care
@@ -767,7 +826,7 @@ function printTranscript(args) {
 // -------------------- MAIN APP --------------------
 //export default function DelegationManagementApp() {
 //function DelegationManagementApp() {
-const App = () => {
+function DelegationManagementApp() {
   const TODAY = todayISO();
 
   // -- UI HELPERS --
@@ -1570,7 +1629,7 @@ const App = () => {
     <div className="min-h-screen bg-gray-50 font-sans">
       <header className="bg-indigo-600 text-white px-5 py-4 shadow-md flex justify-between items-center">
         <div className="flex items-center gap-3">
-  
+        <ShieldCheck size={28} />
           <div>
             <div className="text-xl font-extrabold">CareScope360 RN Delegations</div>
             <div className="text-xs flex items-center gap-1">
@@ -2980,3 +3039,21 @@ const App = () => {
     </div>
   );
 }
+
+/* =========================================================
+   ROOT ALIAS + MOUNT (no-build GitHub Pages)
+   ========================================================= */
+
+/*
+  Your DOCX defines:
+    function DelegationManagementApp() { ... }
+
+  JSX elsewhere expects <App /> OR we need a single mount target.
+  This alias avoids renaming the entire file.
+*/
+
+const App = DelegationManagementApp;
+
+// Mount once the script is loaded
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(React.createElement(App));
