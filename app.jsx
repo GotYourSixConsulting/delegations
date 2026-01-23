@@ -3009,7 +3009,7 @@ function printTranscript(args) {
       </Modal>
     </div>
   );
-}
+//}
 
 // Alias first detected component to App for mounting
 const App = SignaturePad;
