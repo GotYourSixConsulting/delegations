@@ -3,7 +3,6 @@
 const { useState, useEffect, useMemo, useCallback, useRef } = React;
 
 
-
 /**
  * DelegationManagementApp.jsx
  * Prototype: Oregon RN Delegation (Division 47) tracker for Assisted Living / Memory Care
@@ -766,8 +765,7 @@ function printTranscript(args) {
 }
 
 // -------------------- MAIN APP --------------------
-//export default function DelegationManagementApp() {
-function DelegationManagementApp() {
+export default function DelegationManagementApp() {
   const TODAY = todayISO();
 
   // -- UI HELPERS --
@@ -2980,13 +2978,3 @@ function DelegationManagementApp() {
     </div>
   );
 }
-
-// Alias first detected component to App for mounting
-const App = SignaturePad;
-
-
-// Mount
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(React.createElement(App));
-
-
