@@ -798,6 +798,7 @@ function printTranscript(args) {
 
 // -------------------- MAIN APP --------------------
 //export default function DelegationManagementApp() {
+function DelegationManagementApp() {
   const TODAY = todayISO();
 
   // -- UI HELPERS --
@@ -3009,7 +3010,7 @@ function printTranscript(args) {
       </Modal>
     </div>
   );
-//}
+}
 
 // Alias first detected component to App for mounting
 const App = SignaturePad;
