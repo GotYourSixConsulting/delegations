@@ -1,44 +1,39 @@
 /* global React, ReactDOM */
 
-// Pull hooks from the global React (since we are not importing from 'react')
-const { useState, useEffect, useCallback, useMemo } = React;
+const { useEffect, useMemo, useRef, useState } = React;
 
-/**
- * Icon stubs: your DOCX imports many lucide-react icons.
- * In this no-build approach, we stub them to simple spans so the app runs.
- * You can later replace with inline SVGs or a CDN icon solution.
- */
-const __iconNames = [
-  "Users","Building2","CalendarCheck","AlertTriangle","ChevronDown","LogOut",
-  "TrendingUp","Compass","ClipboardList","Clock","CheckCircle","Home","Calendar",
-  "Settings","ArrowLeft","Plus","Trash2","Edit","Save","ArrowBigLeftDash","Download",
-  "FileText","ClipboardListIcon","FileWarning","Briefcase","XCircle","CheckSquare",
-  "MessageSquare","BarChart3","GraduationCap","ClipboardCheck","ArrowRight",
-  "Ambulance","Syringe","Bed","Dumbbell","Utensils","Zap","Shield","BookOpen",
-  "Flame","LayoutDashboard","Lock","UserPlus","UserCog","Search","Upload","FileCheck",
-  "ChefHat","Printer","Phone","Mail","User","Bell","List"
-];
-
-function __IconStub({ label, className }) {
-  // keep className so your layout doesn't explode; renders nothing visible except label if you want it
-  return React.createElement("span", { className, "data-icon": label, title: label });
-}
-
-for (const name of __iconNames) {
-  // Define globals matching <Ambulance /> etc.
-  // Using var so it becomes a true global in this script context.
-  // eslint-disable-next-line no-var
-  var _tmp = null;
-  window[name] = (props) => __IconStub({ ...props, label: name });
-}
-
-// Alias used in your import: ClipboardList as ClipboardListIcon
-window.ClipboardListIcon = window.ClipboardList;
-
-
-//This is the end of the SHIM code. All I do is remove the import from Gemini and paste the rest below. I also have to remove the "exports" as well. -Brendan
-
-
+import {
+  ShieldCheck,
+  LayoutDashboard,
+  Users,
+  ClipboardList,
+  CalendarCheck,
+  Search,
+  Plus,
+  X,
+  Download,
+  Printer,
+  Trash2,
+  Calendar,
+  CheckSquare,
+  BookOpen,
+  AlertTriangle,
+  PenLine,
+  FileText,
+  Settings,
+  LogOut,
+  Activity,
+  Home,
+  UserCheck,
+  Building,
+  Mail,
+  Phone,
+  Briefcase,
+  Edit2,
+  Save,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
 
 /**
  * DelegationManagementApp.jsx
@@ -3015,3 +3010,13 @@ export default function DelegationManagementApp() {
     </div>
   );
 }
+
+// Alias first detected component to App for mounting
+const App = SignaturePad;
+
+
+// Mount
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(React.createElement(App));
+
+
