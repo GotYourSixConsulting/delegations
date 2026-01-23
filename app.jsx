@@ -1,6 +1,6 @@
 /* global React, ReactDOM */
 
-const { useEffect, useMemo, useRef, useState } = React;
+const { useState, useEffect, useMemo, useCallback, useRef } = React;
 
 import {
   ShieldCheck,
@@ -797,7 +797,7 @@ function printTranscript(args) {
 }
 
 // -------------------- MAIN APP --------------------
-export default function DelegationManagementApp() {
+//export default function DelegationManagementApp() {
   const TODAY = todayISO();
 
   // -- UI HELPERS --
