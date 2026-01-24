@@ -61,10 +61,9 @@ const ChevronUp       = (props) => __LucideStub({ name: "ChevronUp", ...props })
 
 
 
-
 /**
  * DelegationManagementApp.jsx
- * Prototype: Oregon RN Delegation (Division 47) tracker for Assisted Living / Memory Care
+ * Prototype: 1.211 Oregon RN Delegation (Division 47) tracker for Assisted Living / Memory Care
  */
 
 // -------------------- HELPERS --------------------
@@ -748,7 +747,10 @@ function buildPacketHTML({
       Discussion: ${competency.discussion ? "Y" : "N"},
       Demo: ${competency.demonstration ? "Y" : "N"},
       Return Demo: ${competency.returnDemonstration ? "Y" : "N"},
-      Packet Reviewed: ${competency.packetReviewed ? "Y" : "N"}
+      Packet Reviewed: ${competency.packetReviewed ? "Y" : "N"},
+      Written Test: ${competency.writtenTest ? "Y" : "N"},
+      Verbal Test: ${competency.verbalTest ? "Y" : "N"},
+      Other: ${competency.other ? "Y" : "N"}
     </div>
 
     <h2>Justification</h2>
@@ -774,13 +776,20 @@ function buildPacketHTML({
 
 function buildAssessmentHTML({ orgName, resident, assessment }) {
   const safe = escapeHtml;
+  const notificationBlock = assessment?.residentNotification
+    ? `<div style="margin-top:24px; border:1px solid #ccc; padding:12px; border-radius:8px; background-color:#f9f9f9;">
+         <b>Resident Notification & Attestation:</b><br/>
+         Resident and/or legally authorized representative was notified that insulin administration will be performed by an Unlicensed Person pursuant to Registered Nurse (RN) delegation. The (RN) provided initial instruction and competency validation and will maintain ongoing supervision, evaluation, and reauthorization monitoring per their respective Board of Nursing, state regulations, and facility policies and procedures. Resident/representative voiced understanding and agreement.
+       </div>`
+    : "";
+
   return `<html><head><meta charset="utf-8" /><title>Assessment</title><style>body{font-family:Arial;padding:40px;}</style></head><body><h1>RN Diabetic Assessment</h1><p><b>Resident:</b> ${safe(
     resident?.name
   )}</p><p><b>Date:</b> ${safe(assessment?.date)}</p><p><b>Type:</b> ${safe(
     assessment?.type
   )}</p><p><b>Status:</b> ${
     assessment?.stable ? "Stable" : "Unstable"
-  }</p><h3>Narrative</h3><p>${safe(assessment?.notes)}</p></body></html>`;
+  }</p><h3>Narrative</h3><p>${safe(assessment?.notes)}</p>${notificationBlock}</body></html>`;
 }
 
 function buildTranscriptHTML({ orgName, medTech }) {
@@ -824,25 +833,52 @@ function printTranscript(args) {
 }
 
 // -------------------- MAIN APP --------------------
-//export default function DelegationManagementApp() {
-//function DelegationManagementApp() {
-function DelegationManagementApp() {
+export default function DelegationManagementApp() {
   const TODAY = todayISO();
 
   // -- UI HELPERS --
   const statusBadge = (d) => {
     if (d.status === "rescinded") return <Badge tone="red">RESCINDED</Badge>;
-    if (new Date(d.endDate) < new Date(TODAY)) return <Badge tone="red">OVERDUE</Badge>;
+    if (new Date(d.endDate) < new Date(TODAY)) {
+      return (
+        <button
+          onClick={() => openReauthModal(d.id)}
+          className="cursor-pointer hover:opacity-75 transition-opacity"
+          title="Click to Reauthorize"
+        >
+          <Badge tone="red">OVERDUE</Badge>
+        </button>
+      );
+    }
     if (daysBetween(TODAY, d.endDate) <= DUE_SOON_DAYS) return <Badge tone="yellow">DUE SOON</Badge>;
     return <Badge tone="green">ACTIVE</Badge>;
   };
 
-  const supervisionBadge = (d) => {
-    if (!d.supervisionDueDate) return <Badge tone="gray">No due date</Badge>;
-    const diff = daysBetween(TODAY, d.supervisionDueDate);
-    if (diff < 0) return <Badge tone="red">Supervision overdue</Badge>;
-    if (diff <= 7) return <Badge tone="yellow">Supervision due</Badge>;
-    return <Badge tone="green">Supervision OK</Badge>;
+  const getNextAssessmentDueDate = (resident) => {
+    if (!resident) return null;
+    if (resident.nextAssessmentDate) return resident.nextAssessmentDate;
+    const interval = resident.reassessInDays || ASSESSMENT_INTERVAL_DAYS;
+    if (resident.lastAssessmentDate) return addDays(resident.lastAssessmentDate, interval);
+    return null;
+  };
+
+  const assessmentBadge = (resident) => {
+    const nextDue = getNextAssessmentDueDate(resident);
+    if (!nextDue) return <Badge tone="gray">No due date</Badge>;
+    const diff = daysBetween(TODAY, nextDue);
+    if (diff < 0) {
+      return (
+        <button
+          onClick={() => openAssessmentModal(resident.id)}
+          className="cursor-pointer hover:opacity-75 transition-opacity"
+          title="Click to add Assessment"
+        >
+          <Badge tone="red">Assessment overdue</Badge>
+        </button>
+      );
+    }
+    if (diff <= 7) return <Badge tone="yellow">Assessment due</Badge>;
+    return <Badge tone="green">Assessment OK</Badge>;
   };
 
   const renderNextAssessmentBadge = (resident) => {
@@ -869,6 +905,7 @@ function DelegationManagementApp() {
   const [view, setView] = useState("dashboard");
   const [searchQuery, setSearchQuery] = useState("");
   const [delegationStatusFilter, setDelegationStatusFilter] = useState(null);
+  const [residentFilter, setResidentFilter] = useState(null); // Added state
   const [communities, setCommunities] = useState(MOCK_COMMUNITIES);
   const [activeCommunityId, setActiveCommunityId] = useState("cm-01");
   const [residents, setResidents] = useState(MOCK_RESIDENTS);
@@ -968,6 +1005,8 @@ function DelegationManagementApp() {
       demonstration: false,
       returnDemonstration: false,
       packetReviewed: false,
+      writtenTest: false,
+      verbalTest: false,
       other: false,
     },
     justification: {
@@ -1044,6 +1083,18 @@ function DelegationManagementApp() {
       insulinExperienceCareer: "",
       willingnessDescription: "",
     },
+    trainingMethods: {
+      lecture: false,
+      careScopeTraining: false,
+      writtenTest: false,
+      personalObservation: false,
+      discussion: false,
+      demonstration: false,
+      packetReviewed: false,
+      verbalTest: false,
+      other: false,
+    },
+    trainingOtherNarrative: "",
   });
 
   const [logTrainingForm, setLogTrainingForm] = useState({
@@ -1078,6 +1129,7 @@ function DelegationManagementApp() {
     notes: "",
     date: TODAY,
     nextDueDate: addDays(TODAY, ASSESSMENT_INTERVAL_DAYS),
+    residentNotification: false,
   });
 
   const [editCommunityForm, setEditCommunityForm] = useState(null);
@@ -1119,8 +1171,17 @@ function DelegationManagementApp() {
     let list = residents;
     if (activeCommunityId !== "all") list = residents.filter((r) => r.communityId === activeCommunityId);
     if (searchQuery) list = list.filter((r) => r.name.toLowerCase().includes(searchQuery.toLowerCase()));
+    
+    // Filter for overdue assessments
+    if (residentFilter === "overdue") {
+      list = list.filter((r) => {
+        const next = getNextAssessmentDueDate(r);
+        return next && daysBetween(TODAY, next) < 0;
+      });
+    }
+
     return list;
-  }, [residents, searchQuery, activeCommunityId]);
+  }, [residents, searchQuery, activeCommunityId, residentFilter, TODAY]);
 
   const filteredMedTechs = useMemo(() => {
     let list = medTechs;
@@ -1164,17 +1225,19 @@ function DelegationManagementApp() {
         return filteredDelegations.filter(
           (d) => d.status === "active" && new Date(d.endDate) < new Date(TODAY)
         );
-      case "supervisionDue":
-        return filteredDelegations.filter(
-          (d) =>
-            d.status === "active" &&
-            d.supervisionDueDate &&
-            daysBetween(TODAY, d.supervisionDueDate) <= 7
-        );
+      case "diabeticAssessmentsOverdue":
+        return filteredDelegations.filter((d) => {
+          if (d.status !== "active") return false;
+          const r = residents.find((x) => x.id === d.residentId);
+          const nextDue = getNextAssessmentDueDate(r);
+          return nextDue && new Date(nextDue) < new Date(TODAY);
+        });
       case "unsigned":
         return filteredDelegations.filter(
           (d) => d.status === "active" && !(d.signatures?.rn?.signedAt && d.signatures?.mt?.signedAt)
         );
+      case "rescinded":
+        return filteredDelegations.filter((d) => d.status === "rescinded");
       default:
         return filteredDelegations;
     }
@@ -1211,14 +1274,17 @@ function DelegationManagementApp() {
     const overdue = filteredDelegations.filter(
       (d) => d.status === "active" && new Date(d.endDate) < new Date(TODAY)
     ).length;
-    const supervisionDue = filteredDelegations.filter(
-      (d) => d.status === "active" && d.supervisionDueDate && daysBetween(TODAY, d.supervisionDueDate) <= 7
-    ).length;
+    const diabeticAssessmentsOverdue = residents
+      .filter((r) => activeCommunityId === "all" || r.communityId === activeCommunityId)
+      .filter((r) => {
+        const nextDue = getNextAssessmentDueDate(r);
+        return nextDue && new Date(nextDue) < new Date(TODAY);
+      }).length;
     const unsigned = filteredDelegations.filter(
       (d) => d.status === "active" && !(d.signatures?.rn?.signedAt && d.signatures?.mt?.signedAt)
     ).length;
-    return { active, dueSoon, overdue, supervisionDue, unsigned, total: filteredDelegations.length };
-  }, [filteredDelegations, TODAY]);
+    return { active, dueSoon, overdue, diabeticAssessmentsOverdue, unsigned, total: filteredDelegations.length };
+  }, [filteredDelegations, TODAY, residents, activeCommunityId]);
 
   // ---- Prefill justification fields from Med-Tech profile (Add Med-Tech menu) ----
   useEffect(() => {
@@ -1270,13 +1336,36 @@ function DelegationManagementApp() {
 
   const handleAddMedTech = () => {
     if (!medTechForm.name) return alert("Name required");
+
+    // Construct training details for transcript
+    const methods = [];
+    if (medTechForm.trainingMethods.careScopeTraining) methods.push("CareScope360 Training");
+    if (medTechForm.trainingMethods.lecture) methods.push("Lecture");
+    if (medTechForm.trainingMethods.writtenTest) methods.push("Written Test");
+    if (medTechForm.trainingMethods.personalObservation) methods.push("Personal Observation");
+    if (medTechForm.trainingMethods.discussion) methods.push("Discussion");
+    if (medTechForm.trainingMethods.demonstration) methods.push("Demonstration");
+    if (medTechForm.trainingMethods.packetReviewed) methods.push("Packet Reviewed");
+    if (medTechForm.trainingMethods.verbalTest) methods.push("Verbal Test");
+    if (medTechForm.trainingMethods.other) methods.push(`Other: ${medTechForm.trainingOtherNarrative}`);
+
+    const methodString = methods.length > 0 ? `Methods: ${methods.join(", ")}` : "";
+    const fullNotes = [methodString, medTechForm.training].filter(Boolean).join("\n\n");
+
+    const initialTranscript = {
+      id: uid("tr"),
+      date: TODAY,
+      topic: "Initial Competency/Training",
+      notes: fullNotes,
+    };
+
     setMedTechs((p) => [
       ...p,
       {
         id: uid("mt"),
         ...medTechForm,
         hireDate: TODAY,
-        trainingTranscript: [],
+        trainingTranscript: [initialTranscript],
       },
     ]);
     setShowAddMedTech(false);
@@ -1402,6 +1491,20 @@ function DelegationManagementApp() {
       residentWorkAndKnowledge: existing.residentWorkAndKnowledge || "",
       willingnessDescription: existing.willingnessDescription || "",
     });
+    setSupervisionData({
+      methods: {
+        supervision: false,
+        discussion: false,
+        demonstration: false,
+        returnDemonstration: false,
+        lecture: false,
+        packetReviewed: false,
+        writtenTest: false,
+        verbalTest: false,
+        other: false,
+      },
+      otherNarrative: "",
+    });
 
     setShowReauthModal(true);
   };
@@ -1424,6 +1527,23 @@ function DelegationManagementApp() {
           fields: fieldsToUse,
         });
 
+        // Check if any observation data was entered (any method checked or narrative text)
+        const hasObservationData =
+          Object.values(supervisionData.methods).some((v) => v === true) ||
+          !!supervisionData.otherNarrative;
+
+        const obsLog = hasObservationData
+          ? {
+              date: TODAY,
+              methods: supervisionData.methods,
+              otherNarrative: supervisionData.otherNarrative,
+            }
+          : null;
+
+        const obsMethods = obsLog
+          ? Object.keys(obsLog.methods || {}).filter((k) => obsLog.methods[k])
+          : [];
+
         return {
           ...d,
           endDate: addDays(TODAY, authDays),
@@ -1431,6 +1551,7 @@ function DelegationManagementApp() {
           supervisionDueDate: addDays(TODAY, Math.min(authDays, MAX_AUTH_DAYS)),
           justification: fieldsToUse,
           authJustification: authText,
+          ...(obsLog ? { personalObservations: [...(d.personalObservations || []), obsLog] } : {}),
           audit: [
             ...(d.audit || []),
             {
@@ -1440,6 +1561,17 @@ function DelegationManagementApp() {
                 ? `Extended ${authDays} days (criteria unchanged)`
                 : `Extended ${authDays} days (criteria updated)`,
             },
+            ...(obsLog
+              ? [
+                  {
+                    at: new Date().toISOString(),
+                    action: "PERSONAL_OBSERVATION_LOGGED",
+                    detail: obsMethods.length
+                      ? `Logged with reauthorization: ${obsMethods.join(", ")}`
+                      : "Logged with reauthorization",
+                  },
+                ]
+              : []),
           ],
         };
       })
@@ -1629,7 +1761,7 @@ function DelegationManagementApp() {
     <div className="min-h-screen bg-gray-50 font-sans">
       <header className="bg-indigo-600 text-white px-5 py-4 shadow-md flex justify-between items-center">
         <div className="flex items-center gap-3">
-        <ShieldCheck size={28} />
+          <ShieldCheck size={28} />
           <div>
             <div className="text-xl font-extrabold">CareScope360 RN Delegations</div>
             <div className="text-xs flex items-center gap-1">
@@ -1687,7 +1819,12 @@ function DelegationManagementApp() {
               <Card title="Active" value={stats.active} tone="green" onClick={() => { setView("delegations"); setDelegationStatusFilter("active"); }} />
               <Card title="Due Soon" value={stats.dueSoon} tone={stats.dueSoon > 0 ? "red" : "yellow"} onClick={() => { setView("delegations"); setDelegationStatusFilter("dueSoon"); }} />
               <Card title="Overdue" value={stats.overdue} tone={stats.overdue > 0 ? "red" : "green"} onClick={() => { setView("delegations"); setDelegationStatusFilter("overdue"); }} />
-              <Card title="Supervision Due" value={stats.supervisionDue} tone={stats.supervisionDue > 0 ? "red" : "yellow"} onClick={() => { setView("delegations"); setDelegationStatusFilter("supervisionDue"); }} />
+              <Card 
+                title="Diabetic Assessments Overdue" 
+                value={stats.diabeticAssessmentsOverdue} 
+                tone={stats.diabeticAssessmentsOverdue > 0 ? "red" : "yellow"} 
+                onClick={() => { setView("residents"); setResidentFilter("overdue"); }} 
+              />
               <Card title="Unsigned" value={stats.unsigned} tone={stats.unsigned > 0 ? "red" : "indigo"} onClick={() => { setView("delegations"); setDelegationStatusFilter("unsigned"); }} />
             </div>
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 overflow-auto">
@@ -1700,7 +1837,7 @@ function DelegationManagementApp() {
                     <th className="p-3">Community</th>
                     <th className="p-3">Task</th>
                     <th className="p-3">Auth Ends</th>
-                    <th className="p-3">Supervision</th>
+                    <th className="p-3">Diabetic Assessment</th>
                     <th className="p-3">Actions</th>
                   </tr>
                 </thead>
@@ -1724,8 +1861,8 @@ function DelegationManagementApp() {
                         </td>
                         <td className="p-3">
                           <div className="flex flex-col">
-                            <span className="text-xs text-gray-500">Due {formatDate(d.supervisionDueDate)}</span>
-                            {supervisionBadge(d)}
+                            <span className="text-xs text-gray-500">Due {formatDate(getNextAssessmentDueDate(r))}</span>
+                            {assessmentBadge(r)}
                           </div>
                         </td>
                         <td className="p-3">
@@ -1735,12 +1872,6 @@ function DelegationManagementApp() {
                             </Button>
                             <Button variant="secondary" onClick={() => openSign(d.id)} title="Sign">
                               <PenLine size={16} /> Sign
-                            </Button>
-                            <Button variant="secondary" onClick={() => handlePrintDelegation(d)} title="Print">
-                              <Printer size={16} /> Print
-                            </Button>
-                            <Button variant="secondary" onClick={() => openSupervisionModal(d.id)} disabled={d.status !== "active"} title="Log Personal Observation">
-                              <CalendarCheck size={16} /> Log Personal Observation
                             </Button>
                             <Button variant="secondary" onClick={() => openReauthModal(d.id)} disabled={d.status !== "active"} title="Reauthorize">
                               <Calendar size={16} /> Reauthorize
@@ -1772,7 +1903,7 @@ function DelegationManagementApp() {
             </div>
             {delegationStatusFilter && (
               <div className="bg-indigo-50 p-2 text-indigo-800 rounded">
-                Filter: <strong>{delegationStatusFilter}</strong>{" "}
+                Filter: <strong>{delegationStatusFilter === "diabeticAssessmentsOverdue" ? "Diabetic Assessments Overdue" : delegationStatusFilter}</strong>{" "}
                 <button onClick={() => setDelegationStatusFilter(null)} className="underline ml-2">
                   Clear
                 </button>
@@ -1787,7 +1918,7 @@ function DelegationManagementApp() {
                     <th className="p-4">Community</th>
                     <th className="p-4">Task</th>
                     <th className="p-4">Authorization Ends</th>
-                    <th className="p-4">Supervision</th>
+                    <th className="p-4">Diabetic Assessment</th>
                     <th className="p-4">Signatures</th>
                     <th className="p-4">Actions</th>
                   </tr>
@@ -1846,8 +1977,8 @@ function DelegationManagementApp() {
                                   </td>
                                   <td className="p-4">
                                     <div className="flex flex-col items-start gap-1">
-                                      <span className="text-xs text-gray-500">Due {formatDate(d.supervisionDueDate)}</span>
-                                      {supervisionBadge(d)}
+                                      <span className="text-xs text-gray-500">Due {formatDate(getNextAssessmentDueDate(r))}</span>
+                                      {assessmentBadge(r)}
                                     </div>
                                   </td>
                                   <td className="p-4">{signed ? <Badge tone="green">Signed</Badge> : <Badge tone="yellow">Pending</Badge>}</td>
@@ -1858,17 +1989,6 @@ function DelegationManagementApp() {
                                       </Button>
                                       <Button variant="secondary" onClick={() => openSign(d.id)} title="Sign">
                                         <PenLine size={16} /> Sign
-                                      </Button>
-                                      <Button variant="secondary" onClick={() => handlePrintDelegation(d)} title="Print">
-                                        <Printer size={16} /> Print
-                                      </Button>
-                                      <Button
-                                        variant="secondary"
-                                        onClick={() => openSupervisionModal(d.id)}
-                                        disabled={d.status !== "active"}
-                                        title="Log Personal Observation"
-                                      >
-                                        <CalendarCheck size={16} /> Log Personal Observation
                                       </Button>
                                       <Button
                                         variant="secondary"
@@ -1918,6 +2038,16 @@ function DelegationManagementApp() {
                 <Plus size={18} /> Add Resident
               </Button>
             </div>
+
+            {residentFilter === "overdue" && (
+              <div className="bg-red-50 p-2 text-red-800 rounded flex items-center gap-2">
+                <span>Showing <strong>Overdue Assessments</strong> only.</span>
+                <button onClick={() => setResidentFilter(null)} className="underline font-bold ml-2">
+                  Clear Filter
+                </button>
+              </div>
+            )}
+
             <div className="bg-white rounded-2xl border p-4 overflow-auto">
               <table className="w-full text-sm">
                 <thead className="text-left bg-gray-50 border-b">
@@ -1931,7 +2061,7 @@ function DelegationManagementApp() {
                 </thead>
                 <tbody>
                   {filteredResidents.map((r) => {
-                    const next = r.nextAssessmentDate || (r.lastAssessmentDate ? addDays(r.lastAssessmentDate, ASSESSMENT_INTERVAL_DAYS) : null);
+                    const next = getNextAssessmentDueDate(r);
                     const diff = next ? daysBetween(TODAY, next) : -999;
                     const tone = !next ? "gray" : diff < 0 ? "red" : diff <= 14 ? "yellow" : "green";
                     return (
@@ -2079,6 +2209,19 @@ function DelegationManagementApp() {
                   </div>
                 </div>
               ))}
+              <div
+                className="bg-white rounded-2xl border p-4 shadow-sm border-gray-200 cursor-pointer hover:border-indigo-500 hover:ring-1 hover:ring-indigo-500 transition-all flex flex-col items-center justify-center gap-2"
+                onClick={() => {
+                  setView("delegations");
+                  setDelegationStatusFilter("rescinded");
+                }}
+              >
+                <div className="p-3 bg-red-50 text-red-600 rounded-full">
+                  <Archive size={24} />
+                </div>
+                <div className="font-bold text-gray-900">rescinded delegations</div>
+                <div className="text-xs text-gray-500">View History</div>
+              </div>
             </div>
           </div>
         )}
@@ -2143,7 +2286,7 @@ function DelegationManagementApp() {
 
           <div>
             <Label>Stable & Predictable (Required)</Label>
-            <div className="border rounded p-1">
+            <div className="border rounded-xl p-3 space-y-2 bg-gray-50">
               <Checkbox
                 label="Resident is stable and predictable (documented in medical record)"
                 checked={newDelegation.checklist.stableCondition}
@@ -2151,6 +2294,112 @@ function DelegationManagementApp() {
                   setNewDelegation((p) => ({
                     ...p,
                     checklist: { ...p.checklist, stableCondition: v },
+                  }))
+                }
+              />
+              <Checkbox
+                label="Environment is safe for delegation"
+                checked={newDelegation.checklist.safeEnvironment}
+                onChange={(v) =>
+                  setNewDelegation((p) => ({
+                    ...p,
+                    checklist: { ...p.checklist, safeEnvironment: v },
+                  }))
+                }
+              />
+              <Checkbox
+                label="UAP is willing to perform task"
+                checked={newDelegation.checklist.uapWilling}
+                onChange={(v) =>
+                  setNewDelegation((p) => ({
+                    ...p,
+                    checklist: { ...p.checklist, uapWilling: v },
+                  }))
+                }
+              />
+            </div>
+          </div>
+
+          <div className="col-span-2">
+            <Label>Competency Methods Used</Label>
+            <div className="grid grid-cols-3 gap-2 border rounded-xl p-3 bg-gray-50">
+              <Checkbox
+                label="Lecture"
+                checked={newDelegation.competencyMethods.lecture}
+                onChange={(v) =>
+                  setNewDelegation((p) => ({
+                    ...p,
+                    competencyMethods: { ...p.competencyMethods, lecture: v },
+                  }))
+                }
+              />
+              <Checkbox
+                label="Discussion"
+                checked={newDelegation.competencyMethods.discussion}
+                onChange={(v) =>
+                  setNewDelegation((p) => ({
+                    ...p,
+                    competencyMethods: { ...p.competencyMethods, discussion: v },
+                  }))
+                }
+              />
+              <Checkbox
+                label="Demonstration"
+                checked={newDelegation.competencyMethods.demonstration}
+                onChange={(v) =>
+                  setNewDelegation((p) => ({
+                    ...p,
+                    competencyMethods: { ...p.competencyMethods, demonstration: v },
+                  }))
+                }
+              />
+              <Checkbox
+                label="Return Demo"
+                checked={newDelegation.competencyMethods.returnDemonstration}
+                onChange={(v) =>
+                  setNewDelegation((p) => ({
+                    ...p,
+                    competencyMethods: { ...p.competencyMethods, returnDemonstration: v },
+                  }))
+                }
+              />
+              <Checkbox
+                label="Packet Reviewed"
+                checked={newDelegation.competencyMethods.packetReviewed}
+                onChange={(v) =>
+                  setNewDelegation((p) => ({
+                    ...p,
+                    competencyMethods: { ...p.competencyMethods, packetReviewed: v },
+                  }))
+                }
+              />
+              <Checkbox
+                label="Written Test"
+                checked={newDelegation.competencyMethods.writtenTest}
+                onChange={(v) =>
+                  setNewDelegation((p) => ({
+                    ...p,
+                    competencyMethods: { ...p.competencyMethods, writtenTest: v },
+                  }))
+                }
+              />
+              <Checkbox
+                label="Verbal Test"
+                checked={newDelegation.competencyMethods.verbalTest}
+                onChange={(v) =>
+                  setNewDelegation((p) => ({
+                    ...p,
+                    competencyMethods: { ...p.competencyMethods, verbalTest: v },
+                  }))
+                }
+              />
+              <Checkbox
+                label="Other"
+                checked={newDelegation.competencyMethods.other}
+                onChange={(v) =>
+                  setNewDelegation((p) => ({
+                    ...p,
+                    competencyMethods: { ...p.competencyMethods, other: v },
                   }))
                 }
               />
@@ -2507,6 +2756,45 @@ function DelegationManagementApp() {
               </div>
             )}
           </div>
+
+          <div className="border rounded-xl p-3 bg-gray-50">
+            <Label>Personal Observation</Label>
+            
+            <div className="mt-3 space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                {Object.keys(supervisionData.methods).map((k) => (
+                  <Checkbox
+                    key={k}
+                    label={k
+                      .replace(/([A-Z])/g, " $1")
+                      .replace(/^./, (s) => s.toUpperCase())}
+                    checked={!!supervisionData.methods[k]}
+                    onChange={(v) =>
+                      setSupervisionData((p) => ({
+                        ...p,
+                        methods: { ...p.methods, [k]: v },
+                      }))
+                    }
+                  />
+                ))}
+              </div>
+
+              {supervisionData.methods.other && (
+                <div>
+                  <Label>Other (details)</Label>
+                  <input
+                    className="w-full border p-2 rounded"
+                    value={supervisionData.otherNarrative}
+                    onChange={(e) =>
+                      setSupervisionData((p) => ({ ...p, otherNarrative: e.target.value }))
+                    }
+                    placeholder="Describe other method"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+
         </div>
       </Modal>
 
@@ -2523,24 +2811,6 @@ function DelegationManagementApp() {
         <div>
           <Label>Reason</Label>
           <textarea className="w-full border p-2 rounded" value={rescindReason} onChange={(e) => setRescindReason(e.target.value)} />
-        </div>
-      </Modal>
-
-      <Modal
-        title="Log Personal Observation"
-        open={showSupervisionModal}
-        onClose={() => setShowSupervisionModal(false)}
-        footer={<Button onClick={saveSupervisionLog}>Save</Button>}
-      >
-        <div className="grid grid-cols-2 gap-2">
-          {Object.keys(supervisionData.methods).map((k) => (
-            <Checkbox
-              key={k}
-              label={k.replace(/([A-Z])/g, " $1").trim()}
-              checked={supervisionData.methods[k]}
-              onChange={(v) => setSupervisionData((p) => ({ ...p, methods: { ...p.methods, [k]: v } }))}
-            />
-          ))}
         </div>
       </Modal>
 
@@ -2696,9 +2966,6 @@ function DelegationManagementApp() {
                           <Button variant="secondary" onClick={() => openSign(d.id)} className="text-xs h-auto py-1" title="Sign">
                             <PenLine size={14} /> Sign
                           </Button>
-                          <Button variant="secondary" onClick={() => handlePrintDelegation(d)} className="text-xs h-auto py-1" title="Print">
-                            <Printer size={14} /> Print
-                          </Button>
                         </td>
                       </tr>
                     );
@@ -2771,6 +3038,13 @@ function DelegationManagementApp() {
               className="w-full border p-2 rounded h-32"
               value={assessmentForm.notes}
               onChange={(e) => setAssessmentForm({ ...assessmentForm, notes: e.target.value })}
+            />
+          </div>
+          <div className="mt-2 border rounded-xl p-1 bg-gray-50">
+            <Checkbox
+              label="Resident and/or legally authorized representative was notified that insulin administration will be performed by an Unlicensed Person pursuant to Registered Nurse (RN) delegation. The (RN) provided initial instruction and competency validation and will maintain ongoing supervision, evaluation, and reauthorization monitoring per their respective Board of Nursing, state regulations, and facility policies and procedures. Resident/representative voiced understanding and agreement"
+              checked={assessmentForm.residentNotification}
+              onChange={(v) => setAssessmentForm({ ...assessmentForm, residentNotification: v })}
             />
           </div>
         </div>
@@ -2908,7 +3182,116 @@ function DelegationManagementApp() {
           <textarea className="w-full border p-2 rounded" value={medTechForm.experience} onChange={(e) => setMedTechForm({ ...medTechForm, experience: e.target.value })} />
 
           <Label>Training</Label>
-          <textarea className="w-full border p-2 rounded" value={medTechForm.training} onChange={(e) => setMedTechForm({ ...medTechForm, training: e.target.value })} />
+          <div className="grid grid-cols-2 gap-2 mb-2">
+            <Checkbox
+              label="CareScope360 Training"
+              checked={medTechForm.trainingMethods.careScopeTraining}
+              onChange={(v) =>
+                setMedTechForm((p) => ({
+                  ...p,
+                  trainingMethods: { ...p.trainingMethods, careScopeTraining: v },
+                }))
+              }
+            />
+            <Checkbox
+              label="Lecture"
+              checked={medTechForm.trainingMethods.lecture}
+              onChange={(v) =>
+                setMedTechForm((p) => ({
+                  ...p,
+                  trainingMethods: { ...p.trainingMethods, lecture: v },
+                }))
+              }
+            />
+            <Checkbox
+              label="Written Test"
+              checked={medTechForm.trainingMethods.writtenTest}
+              onChange={(v) =>
+                setMedTechForm((p) => ({
+                  ...p,
+                  trainingMethods: { ...p.trainingMethods, writtenTest: v },
+                }))
+              }
+            />
+            <Checkbox
+              label="Personal Observation"
+              checked={medTechForm.trainingMethods.personalObservation}
+              onChange={(v) =>
+                setMedTechForm((p) => ({
+                  ...p,
+                  trainingMethods: { ...p.trainingMethods, personalObservation: v },
+                }))
+              }
+            />
+            <Checkbox
+              label="Discussion"
+              checked={medTechForm.trainingMethods.discussion}
+              onChange={(v) =>
+                setMedTechForm((p) => ({
+                  ...p,
+                  trainingMethods: { ...p.trainingMethods, discussion: v },
+                }))
+              }
+            />
+            <Checkbox
+              label="Demonstration"
+              checked={medTechForm.trainingMethods.demonstration}
+              onChange={(v) =>
+                setMedTechForm((p) => ({
+                  ...p,
+                  trainingMethods: { ...p.trainingMethods, demonstration: v },
+                }))
+              }
+            />
+            <Checkbox
+              label="Packet Reviewed"
+              checked={medTechForm.trainingMethods.packetReviewed}
+              onChange={(v) =>
+                setMedTechForm((p) => ({
+                  ...p,
+                  trainingMethods: { ...p.trainingMethods, packetReviewed: v },
+                }))
+              }
+            />
+            <Checkbox
+              label="Verbal Test"
+              checked={medTechForm.trainingMethods.verbalTest}
+              onChange={(v) =>
+                setMedTechForm((p) => ({
+                  ...p,
+                  trainingMethods: { ...p.trainingMethods, verbalTest: v },
+                }))
+              }
+            />
+            <Checkbox
+              label="Other"
+              checked={medTechForm.trainingMethods.other}
+              onChange={(v) =>
+                setMedTechForm((p) => ({
+                  ...p,
+                  trainingMethods: { ...p.trainingMethods, other: v },
+                }))
+              }
+            />
+          </div>
+          {medTechForm.trainingMethods.other && (
+            <div className="mb-2">
+              <input
+                className="w-full border p-2 rounded"
+                placeholder="Describe other method..."
+                value={medTechForm.trainingOtherNarrative}
+                onChange={(e) =>
+                  setMedTechForm((p) => ({ ...p, trainingOtherNarrative: e.target.value }))
+                }
+              />
+            </div>
+          )}
+          <textarea
+            className="w-full border p-2 rounded"
+            value={medTechForm.training}
+            onChange={(e) => setMedTechForm({ ...medTechForm, training: e.target.value })}
+            placeholder="Example: Unlicensed Professional demonstrated readiness and willingness to perform the delegated tasks safely, consistently, and within their role. They accept accountability to follow the step-by-step procedure, maintain infection control and medication safety standards, and escalate to the RN without delay for any variance, uncertainty, or resident condition change."
+          />
 
           {/* This is the "Add Med-Tech menu" justification data that flows into the packet */}
           <div className="bg-gray-50 border rounded-xl p-3 mt-2">
@@ -3039,6 +3422,12 @@ function DelegationManagementApp() {
     </div>
   );
 }
+
+
+
+
+/* From here onward stays - Brendan  */
+
 
 /* =========================================================
    ROOT ALIAS + MOUNT (no-build GitHub Pages)
