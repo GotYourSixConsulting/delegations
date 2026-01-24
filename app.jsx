@@ -833,7 +833,8 @@ function printTranscript(args) {
 }
 
 // -------------------- MAIN APP --------------------
-export default function DelegationManagementApp() {
+//export default function DelegationManagementApp() {
+function DelegationManagementApp() {
   const TODAY = todayISO();
 
   // -- UI HELPERS --
