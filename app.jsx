@@ -401,7 +401,7 @@ const MOCK_MEDTECHS = [
   {
     id: "mt-001",
     communityId: "cm-01",
-    name: "Kevin Mills",
+    name: "Brendan O'Mara",
     hireDate: "2019-01-01",
     experience: "5 years as Med-Tech, giving insulin entire career.",
     training: "Completed diabetic training",
